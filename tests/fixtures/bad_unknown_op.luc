@@ -1,0 +1,6 @@
+fn Ages(users: List<User>) -> List<Int> pure
+from users
+via map(age)
+via flatMap(age)
+yield ages
+end

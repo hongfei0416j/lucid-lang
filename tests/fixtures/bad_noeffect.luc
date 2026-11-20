@@ -1,0 +1,5 @@
+fn SumTotal(numbers: List<Int>) -> Int
+from numbers
+via reduce(sum)
+yield total
+end

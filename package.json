@@ -1,0 +1,30 @@
+{
+  "name": "lucid-lang",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AI 只写声明式意图（.luc），本地展开器确定性生成 C#；语法/类型/效果在展开前拦截。",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "lucid": "expander/cli.mjs"
+  },
+  "keywords": [
+    "ai-codegen",
+    "dsl",
+    "deterministic",
+    "typescript-free",
+    "csharp",
+    "intent-language"
+  ],
+  "scripts": {
+    "gate": "node expander/cli.mjs check examples --schema spec/schema.json --budget 500",
+    "expand": "node expander/cli.mjs expand examples/cheapest.luc --target csharp --schema spec/schema.json",
+    "ci:gate": "node tests/gate.mjs",
+    "ci:determinism": "node tests/determinism.mjs",
+    "ci:e2e": "node tests/e2e.mjs",
+    "ci": "npm run ci:gate && npm run ci:determinism && npm run ci:e2e"
+  }
+}

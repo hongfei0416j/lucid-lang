@@ -1,0 +1,60 @@
+# Lucid 算子注册表（expand 阶段唯一查表依据）
+# 约定：
+#   - 表外算子在 typecheck 阶段直接被拒（E_TYPE_UNKNOWN_OPERATOR），不存在“未定义但可用”。
+#   - 模板占位符：{prev} 上一节点表达式、{field} 字段名、{op} 比较符、{literal} 字面量、{n} 数字
+#   - 类型规则由 expander/checker.mjs 实现，本表只登记签名与展开模板，避免"规则写成人话却不执行"。
+#   - v0.1 只注册 5 个算子；select/join/group 暂不注册（无门禁覆盖前不引入新抽象）。
+
+- name: reduce
+  signature: "reduce(agg) -> Int"
+  args: "agg"
+  effect: pure
+  terminates_chain: "true"
+  type_rule: "List<Int> + agg in {sum,min,max} -> Int; agg=count 接受任意 List<T> -> Int; 必须是管道最后一个算子"
+  expands_to: "按 agg 选一条宿主聚合规则，把 List 折叠为标量，不产生新 list"
+  csharp:
+    sum: "{prev}.Aggregate(0, (acc, item) => acc + item)"
+    count: "{prev}.Count()"
+    min: "{prev}.Min()"
+    max: "{prev}.Max()"
+
+- name: filter
+  signature: "filter(field cmp literal) -> List<T>"
+  args: "pred"
+  effect: pure
+  terminates_chain: "false"
+  type_rule: "List<Record> -> List<Record>; field 必须存在于记录 schema; literal 类型必须与 field 类型一致"
+  expands_to: "单字段谓词下推为宿主 Where; 不支持复合布尔表达式(无 and/or)"
+  csharp:
+    default: "{prev}.Where(x => x.{field} {op} {literal})"
+
+- name: map
+  signature: "map(field) -> List<T>"
+  args: "field"
+  effect: pure
+  terminates_chain: "false"
+  type_rule: "List<Record> -> List<fieldType>; field 必须存在"
+  expands_to: "记录投影为单字段序列 (Select)"
+  csharp:
+    default: "{prev}.Select(x => x.{field})"
+
+- name: sort
+  signature: "sort(field, dir) -> List<T>"
+  args: "field,dir"
+  effect: pure
+  terminates_chain: "false"
+  type_rule: "List<Record> -> List<Record>; field 必须存在且为 Int; dir in {asc,desc}"
+  expands_to: "按字段做稳定排序 (OrderBy/OrderByDescending)，不改动输入序列"
+  csharp:
+    asc: "{prev}.OrderBy(x => x.{field})"
+    desc: "{prev}.OrderByDescending(x => x.{field})"
+
+- name: take
+  signature: "take(n) -> List<T>"
+  args: "n"
+  effect: pure
+  terminates_chain: "false"
+  type_rule: "List<T> -> List<T>; n 必须是 >= 0 的整数字面量"
+  expands_to: "取前 n 项; n 超长不报错，结果为全量"
+  csharp:
+    default: "{prev}.Take({n})"

@@ -1,0 +1,18 @@
+{
+  "$comment": "Lucid 数据源 schema。展开器只通过 --schema 显式读取本文件，不读环境变量/全局配置（规避 A7 魔法算子）。",
+  "sources": {
+    "numbers": { "type": "List<Int>" },
+    "users": { "type": "List<User>" },
+    "products": { "type": "List<Product>" }
+  },
+  "records": {
+    "User": [
+      { "name": "name", "type": "String" },
+      { "name": "age", "type": "Int" }
+    ],
+    "Product": [
+      { "name": "name", "type": "String" },
+      { "name": "price", "type": "Int" }
+    ]
+  }
+}

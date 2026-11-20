@@ -1,0 +1,6 @@
+fn CheapestProducts(products: List<Product>) -> List<Product> pure
+from products
+via sort(price, asc)
+via take(3)
+yield cheapest
+end

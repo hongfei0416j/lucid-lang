@@ -1,0 +1,38 @@
+{
+  "cases": [
+    {
+      "file": "sum.luc",
+      "function": "SumTotal",
+      "source": "numbers",
+      "input": [1, 2, 3, 4],
+      "expected": 10
+    },
+    {
+      "file": "adults.luc",
+      "function": "AdultCount",
+      "source": "users",
+      "input": [
+        { "name": "A", "age": 17 },
+        { "name": "B", "age": 20 },
+        { "name": "C", "age": 30 }
+      ],
+      "expected": 2
+    },
+    {
+      "file": "cheapest.luc",
+      "function": "CheapestProducts",
+      "source": "products",
+      "input": [
+        { "name": "a", "price": 30 },
+        { "name": "b", "price": 10 },
+        { "name": "c", "price": 20 },
+        { "name": "d", "price": 5 }
+      ],
+      "expected": [
+        { "name": "d", "price": 5 },
+        { "name": "b", "price": 10 },
+        { "name": "c", "price": 20 }
+      ]
+    }
+  ]
+}

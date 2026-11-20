@@ -1,0 +1,5 @@
+fn Names(users: List<User>) -> List<String> pure
+from users
+via map(nickname)
+yield names
+end

@@ -1,0 +1,6 @@
+import { map } from "lodash"
+fn Ages(users: List<User>) -> List<Int> pure
+from users
+via map(age)
+yield ages
+end

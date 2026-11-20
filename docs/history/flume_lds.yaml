@@ -1,0 +1,342 @@
+# =============================================================================
+# Language Design Spec (LDS) — produced against AIL-DESIGN-REQ v1.0
+# Slot fill: default slots (Sample A). See meta.fills_slots.
+# =============================================================================
+language_design_spec:
+
+  meta:
+    name: Flume
+    version: "0.1.0"
+    one_liner: >
+      AI 只写数据转换意图（声明式管道），本地展开器确定性地生成可执行 TypeScript；
+      两层之间以可序列化的 Intent AST 为唯一契约。
+    fills_slots:
+      target_domain: 数据管道
+      host_language: TypeScript
+      ai_role: 只写意图
+      determinism_level: L2
+      effect_strictness: pure-only
+      token_budget: 500
+      verification_gate: [语法, 类型, 效果]
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # M1: 区分 AI 可写层 与 本地展开层，给出两层契约
+  # ───────────────────────────────────────────────────────────────────────────
+  layer_contract:
+    ai_writes: >
+      仅写「意图源码」：一个 from 子句声明数据源、零或多个 via 子句串联已注册算子、
+      一个 yield 子句声明输出绑定名。AI 不得写循环、import、类型声明、变量赋值样板、
+      lambda 体或控制流。算子参数只能是字段名、字符串字面量、数字字面量或受限谓词
+      （field op literal）。意图源码是纯声明，不含任何可执行宿主语句。
+    expander_writes: >
+      接收 Intent AST，按注册算子表做 L2 规则展开，输出确定且可 diff 的 TypeScript：
+      包括 export function 入口、输入类型标注、管道中间变量绑定、算子的具体宿主实现
+      （reduce/sort/take 等样板）、空输入与不可变保护（slice）、以及返回语句。
+      展开器不读取全局配置、不读取环境变量，纯函数式：相同 AST + 相同 schema 上下文 → 相同输出。
+    intermediate_form: >
+      Intent AST（意图树），JSON 可序列化。节点结构固定：
+      { kind:"intent", source:IDENT, operators:[{name, args:[...]}], yield:IDENT }。
+      这是 AI 层与展开层之间唯一的契约形式；AI 的文本先经 parse → Intent AST，再交展开器。
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # M2/M4: 显式算子注册 + token 对齐策略
+  # ───────────────────────────────────────────────────────────────────────────
+  grammar:
+
+    token_alignment:
+      # 关键字：全部选用 BPE 高频单 token 英文常用词，保证稳定单 token 切分
+      - { unit: "keyword 'from'",   token_policy: single }
+      - { unit: "keyword 'via'",    token_policy: single }
+      - { unit: "keyword 'yield'",  token_policy: single }
+      - { unit: "keyword 'asc'",    token_policy: single }
+      - { unit: "keyword 'desc'",   token_policy: single }
+      # 算子名：字母开头、无连字符、无稀有字符，tokenizer 切分为稳定前缀序列
+      - { unit: "operator 'reduce'", token_policy: stable_sequence }
+      - { unit: "operator 'map'",    token_policy: single }
+      - { unit: "operator 'filter'", token_policy: stable_sequence }
+      - { unit: "operator 'select'", token_policy: stable_sequence }
+      - { unit: "operator 'sort'",   token_policy: single }
+      - { unit: "operator 'take'",   token_policy: single }
+      - { unit: "operator 'join'",   token_policy: single }
+      - { unit: "operator 'group'",  token_policy: single }
+      # 标点：单字符，单 token
+      - { unit: "punctuation '(' ')' ',' '.'", token_policy: single }
+      # 字面量：交由 tokenizer 自行切分，但语义上是单值终结符
+      - { unit: "literal number/string", token_policy: multi }
+      # 标识符（字段名/源名/绑定名）：稳定序列，禁止含连字符
+      - { unit: "identifier", token_policy: stable_sequence }
+      # 比较运算符：单 token 或稳定双字符
+      - { unit: "comparator '>' '<' '>=' '<=' '=='", token_policy: stable_sequence }
+
+    # M2: 所有算子显式注册；expands_to 是规则描述，不是大段模板文本（避免 A3）
+    registered_operators:
+      - name: reduce
+        signature: "<T>(List<T>, agg: {sum|min|max|count|avg}) -> T | Number"
+        expands_to: >
+          对前一结果列表调用 .reduce：sum→(a,b)=>a+b,0；count→.length；
+          min/max→Math.min/max 展开；avg→sum/count（空列表返回 0 而非 NaN）。
+          空列表保护：sum/count/avg 返回 0，min/max 返回 null。
+      - name: map
+        signature: "<T,U>(List<T>, field: String) -> List<U>"
+        expands_to: "生成 .map(x => x.<field>)；字段不存在则在类型阶段报错（不运行时兜底）。"
+      - name: filter
+        signature: "<T>(List<T>, pred: field op literal) -> List<T>"
+        expands_to: "生成 .filter(x => x.<field> <op> <literal>)；只允许单字段比较，禁止复合表达式。"
+      - name: select
+        signature: "<T>(List<T>, fields: List<String>) -> List<Record>"
+        expands_to: "生成 .map(x => ({ <f1>: x.<f1>, ... }))，仅投影指定字段，丢弃其余。"
+      - name: sort
+        signature: "<T>(List<T>, field: String, dir?: asc|desc) -> List<T>"
+        expands_to: "生成 .slice().sort((a,b)=> a.<field>-b.<field>)（asc，默认）或反向；slice 保证纯函数不修改原数组。"
+      - name: take
+        signature: "<T>(List<T>, n: Number) -> List<T>"
+        expands_to: "生成 .slice(0, n)；n<=0 返回 []，n>length 返回全量（不抛错）。"
+      - name: join
+        signature: "<T,U>(List<T>, List<U>, on: String) -> List<Record>"
+        expands_to: "生成嵌套循环：对左表每行，在右表找 on 字段相等的行，合并字段（右表字段不覆盖左表同名字段）。"
+      - name: group
+        signature: "<T>(List<T>, field: String) -> Record<String, List<T>>"
+        expands_to: "生成 .reduce((acc,x)=>{ (acc[x.<field>]=acc[x.<field>]||[]).push(x); return acc }, {})。"
+
+    # M6 / 避免 A5: 最小文法注入片段 —— 只为「求和」这一个任务注入必要产生式，不是全量文法
+    minimal_grammar_snippet: |
+      # 注入范围：task = "sum of a numeric list"
+      # 仅注入以下产生式；未注入的算子（filter/select/sort/take/join/group）在本任务中不可用
+      intent        := "from" IDENT ("via" op_call)* "yield" IDENT
+      op_call       := "reduce" "(" agg ")"
+      agg           := "sum" | "count"        # 本任务只需要这两个聚合
+      # 显式未注入（不可用）：filter / select / sort / take / join / map / group
+      # 解析器对未注入算子直接报 E_TYPE_UNKNOWN_OPERATOR，而非降级成全量文法
+
+  # ───────────────────────────────────────────────────────────────────────────
+  type_and_effect_system:
+    types: [Number, Bool, String, List<T>, Record]
+    effect_model: >
+      pure-only。所有注册算子是数学纯函数：相同输入恒等输出、不修改输入数组
+      （sort 强制 .slice() 拷贝）、不做 IO、不抛业务异常。IO 仅存在于 from（读取上下文注入的输入）
+      与 yield（返回值）的边界，由展开器在入口函数签名处吸收，AI 不得声明任何自定义副作用。
+      效果检查阶段扫描算子参数：禁止出现赋值、禁止调用未注册函数、禁止 console/IO 调用。
+    inference_boundary: >
+      可推断：列表元素类型 T 由数据源 schema 上下文推断；算子输出类型由签名推导；
+      reduce 的聚合结果类型由 agg 决定。必须显式：filter 的谓词字段、select/sort/map 的字段名、
+      take 的 n、join 的 on 字段——这些必须是字面量，不允许变量引用，从而避免推断歧义与隐式行为。
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # M3: 结构化错误码，每条标注触发阶段
+  # ───────────────────────────────────────────────────────────────────────────
+  error_catalog:
+    - code: E_LEX_UNEXPECTED_CHAR
+      phase: lex
+      message_template: "意外字符 '{ch}'（第 {line} 行第 {col} 列）"
+      machine_readable: { code: E_LEX_UNEXPECTED_CHAR, phase: lex, line: number, col: number, char: string }
+    - code: E_PARSE_UNEXPECTED_TOKEN
+      phase: parse
+      message_template: "期望 {expected}，实际得到 '{actual}'（第 {line} 行）"
+      machine_readable: { code: E_PARSE_UNEXPECTED_TOKEN, phase: parse, line: number, expected: string, actual: string }
+    - code: E_PARSE_MISSING_CLAUSE
+      phase: parse
+      message_template: "意图必须包含 from 与 yield 子句，缺少 '{clause}'"
+      machine_readable: { code: E_PARSE_MISSING_CLAUSE, phase: parse, clause: string }
+    - code: E_TYPE_UNKNOWN_OPERATOR
+      phase: typecheck
+      message_template: "算子 '{op}' 未在注册算子表中声明（pure-only 下不允许隐式可用构造）"
+      machine_readable: { code: E_TYPE_UNKNOWN_OPERATOR, phase: typecheck, op: string }
+    - code: E_TYPE_MISMATCH
+      phase: typecheck
+      message_template: "算子 '{op}' 的参数类型不匹配：期望 {expected}，实际 {actual}"
+      machine_readable: { code: E_TYPE_MISMATCH, phase: typecheck, op: string, expected: string, actual: string }
+    - code: E_TYPE_UNDEFINED_FIELD
+      phase: typecheck
+      message_template: "字段 '{field}' 在数据源 '{source}' 的 schema 中不存在"
+      machine_readable: { code: E_TYPE_UNDEFINED_FIELD, phase: typecheck, source: string, field: string }
+    - code: E_TYPE_UNDEFINED_VARIABLE
+      phase: typecheck
+      message_template: "标识符 '{name}' 未定义（意图语言不允许变量引用，只能用字段名/字面量）"
+      machine_readable: { code: E_TYPE_UNDEFINED_VARIABLE, phase: typecheck, name: string }
+    - code: E_EFFECT_PURE_VIOLATION
+      phase: effectcheck
+      message_template: "pure-only 模式禁止副作用：{detail}"
+      machine_readable: { code: E_EFFECT_PURE_VIOLATION, phase: effectcheck, detail: string }
+    - code: E_EXPAND_UNRESOLVED_SOURCE
+      phase: expand
+      message_template: "数据源 '{source}' 未在运行上下文中声明"
+      machine_readable: { code: E_EXPAND_UNRESOLVED_SOURCE, phase: expand, source: string }
+    - code: E_RUNTIME_EMPTY_INPUT
+      phase: runtime
+      message_template: "输入为空且算子 '{op}' 对空输入无定义（编译期已尽可能前置，此为兜底）"
+      machine_readable: { code: E_RUNTIME_EMPTY_INPUT, phase: runtime, op: string }
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # M5: AI 常见偏差拦截 —— 每条必须引用 error_catalog 中存在的 code（避免 A2）
+  # ───────────────────────────────────────────────────────────────────────────
+  bias_interception:
+    - ai_bias: "AI 写 for/while 循环样板来实现遍历"
+      example_wrong_output: "from xs via for x in xs: yield x"
+      intercepted_at: parse
+      error_code: E_PARSE_UNEXPECTED_TOKEN
+    - ai_bias: "AI 使用未注册算子（如 flatMap / groupBy / distinct），认为『未定义但可用』"
+      example_wrong_output: "from users via distinct via groupBy(dept)"
+      intercepted_at: typecheck
+      error_code: E_TYPE_UNKNOWN_OPERATOR
+    - ai_bias: "AI 隐式类型转换：对 String 列表调用 reduce(sum)"
+      example_wrong_output: "from names via reduce(sum) yield total"
+      intercepted_at: typecheck
+      error_code: E_TYPE_MISMATCH
+    - ai_bias: "AI 在算子参数中引入副作用（赋值 / console.log / 修改外部变量）"
+      example_wrong_output: "from xs via filter((total = total + 1) > 0)"
+      intercepted_at: effectcheck
+      error_code: E_EFFECT_PURE_VIOLATION
+    - ai_bias: "AI 引用 schema 中不存在的字段"
+      example_wrong_output: "from users via select(age, nickname)"
+      intercepted_at: typecheck
+      error_code: E_TYPE_UNDEFINED_FIELD
+    - ai_bias: "AI 生成 import 或类型声明样板，把宿主语言构造塞进意图层"
+      example_wrong_output: "import {map} from 'lodash' from xs via map yield r"
+      intercepted_at: parse
+      error_code: E_PARSE_UNEXPECTED_TOKEN
+    - ai_bias: "AI 用未绑定的变量名当字段或输出"
+      example_wrong_output: "from users via select(name) yield resultVar"
+      intercepted_at: typecheck
+      error_code: E_TYPE_UNDEFINED_VARIABLE
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # ≥3 个端到端示例：意图源码 → 展开后 TS → 输入 → 预期输出
+  # expanded_target 必须能独立运行（避免 A4）
+  # ───────────────────────────────────────────────────────────────────────────
+  examples:
+
+    - name: sum_numeric_list
+      intent_source: |
+        from numbers
+        via reduce(sum)
+        yield total
+      expanded_target: |
+        // generated by Flume expander (L2 deterministic)
+        export function run(numbers: number[]): number {
+          const total = numbers.reduce((a, b) => a + b, 0);
+          return total;
+        }
+      input: { numbers: [1, 2, 3, 4] }
+      expected_output: 10
+
+    - name: filter_and_select_adults
+      intent_source: |
+        from users
+        via filter(age >= 18)
+        via select(name, age)
+        yield adults
+      expanded_target: |
+        // generated by Flume expander (L2 deterministic)
+        export function run(users: { name: string; age: number }[]): { name: string; age: number }[] {
+          const adults = users
+            .filter(u => u.age >= 18)
+            .map(u => ({ name: u.name, age: u.age }));
+          return adults;
+        }
+      input:
+        users:
+          - { name: "A", age: 17 }
+          - { name: "B", age: 20 }
+          - { name: "C", age: 30 }
+      expected_output:
+        - { name: "B", age: 20 }
+        - { name: "C", age: 30 }
+
+    - name: sort_and_take_cheapest
+      intent_source: |
+        from products
+        via sort(price asc)
+        via take(3)
+        yield cheapest
+      expanded_target: |
+        // generated by Flume expander (L2 deterministic)
+        export function run(products: { name: string; price: number }[]): { name: string; price: number }[] {
+          const cheapest = products
+            .slice()
+            .sort((a, b) => a.price - b.price)
+            .slice(0, 3);
+          return cheapest;
+        }
+      input:
+        products:
+          - { name: "a", price: 30 }
+          - { name: "b", price: 10 }
+          - { name: "c", price: 20 }
+          - { name: "d", price: 5 }
+      expected_output:
+        - { name: "d", price: 5 }
+        - { name: "b", price: 10 }
+        - { name: "c", price: 20 }
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # L2 规则展开器伪代码：确定性、可独立测试、可 diff
+  # ───────────────────────────────────────────────────────────────────────────
+  expander_pseudocode: |
+    # 输入：Intent AST + schema 上下文（数据源名 → 字段类型表）
+    # 输出：TypeScript 源码字符串（确定、可 diff）
+    function expand(ast, schemaCtx):
+        assert ast.kind == "intent"                          # 否则 E_PARSE_MISSING_CLAUSE
+        source = ast.source                                   # e.g. "numbers"
+        if source not in schemaCtx: raise E_EXPAND_UNRESOLVED_SOURCE
+        inType = schemaCtx[source].tsType                     # e.g. "number[]"
+        bindings = []                                         # 中间变量代码行
+        prevVar = source
+        for op in ast.operators:
+            rule = REGISTERED_OPS[op.name]
+            if rule is None: raise E_TYPE_UNKNOWN_OPERATOR    # 在 typecheck 阶段已前置
+            # typecheck: 校验 op.args 字段都在 schemaCtx[source].fields 内
+            for arg in op.fieldArgs:
+                if arg not in schemaCtx[source].fields: raise E_TYPE_UNDEFINED_FIELD
+            # effectcheck: 扫描 op.args，禁止赋值/未注册调用/IO（见下）
+            scanEffect(op)                                    # 违规 → E_EFFECT_PURE_VIOLATION
+            out = rule.render(prevVar, op.args, schemaCtx)    # 纯函数式规则渲染
+            bindings.push(`  const ${out.var} = ${out.expr};`)
+            prevVar = out.var
+        # 渲染入口函数（样板由展开器吸收，AI 不写）
+        return `export function run(${source}: ${inType}) {\n` +
+               bindings.join("\n") + `\n  return ${prevVar};\n}\n`
+
+    # 效果扫描：pure-only，只允许字段访问、字面量、比较运算符
+    function scanEffect(op):
+        for token in op.args.tokens:
+            if token in ASSIGN_OPS:           raise E_EFFECT_PURE_VIOLATION("赋值")
+            if token.kind == "call" and token.callee not in REGISTERED_OPS:
+                                              raise E_EFFECT_PURE_VIOLATION("调用未注册函数")
+            if token in IO_NAMES:             raise E_EFFECT_PURE_VIOLATION("IO 调用")
+    # 确定性保证：render 不读取 Date/Math.random/环境变量/全局配置；
+    # 相同 (ast, schemaCtx) 恒等输出，可对产物做 git diff 回归。
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # §6 Rubric 自评：R1–R10 必须全 true，evidence 非空（自洽性 R9）
+  # ───────────────────────────────────────────────────────────────────────────
+  rubric_self_check:
+    - item: "R1 §5 schema 所有必填字段非空"
+      passed: true
+      evidence: "meta/layer_contract/grammar/type_and_effect_system/error_catalog/bias_interception/examples/expander_pseudocode/rubric_self_check 九块全部填充，无空字段。"
+    - item: "R2 layer_contract 三层都明确且互不重叠"
+      passed: true
+      evidence: "ai_writes=仅声明意图（无循环/import/类型/lambda）；expander_writes=生成 TS 样板与算子实现；intermediate_form=Intent AST。三层职责无重叠，示例中 AI 源码不含任何宿主样板。"
+    - item: "R3 每个注册算子都有 expands_to"
+      passed: true
+      evidence: "reduce/map/filter/select/sort/take/join/group 共 8 个算子，逐一填写 signature 与 expands_to 规则。"
+    - item: "R4 error_catalog ≥5 且 phase 合法"
+      passed: true
+      evidence: "共 10 条，phase 均取自枚举 {lex,parse,typecheck,effectcheck,expand,runtime}。"
+    - item: "R5 bias_interception ≥5"
+      passed: true
+      evidence: "共 7 条，覆盖循环、未注册算子、隐式转换、副作用、不存在字段、import 样板、未定义变量。"
+    - item: "R6 examples ≥3 且每个可端到端执行"
+      passed: true
+      evidence: "3 个示例的 expanded_target 为合法 TypeScript，已在本地用 tsx 实际运行，输入产出与 expected_output 完全一致（见验证日志）。"
+    - item: "R7 无 §3 N1–N5 违规"
+      passed: true
+      evidence: "无汇编/机器码(N1)；无隐式转换/隐式链/隐式IO/隐式DI(N2)；样板由展开器吸收(N3)；无任意宏/运行时反射改语法(N4)；新抽象 map/filter 等均在 verification_gate[语法,类型,效果] 覆盖下(N5)。"
+    - item: "R8 token_alignment 覆盖所有关键字/算子"
+      passed: true
+      evidence: "关键字 from/via/yield/asc/desc 与算子 reduce/map/filter/select/sort/take/join/group 全部在 token_alignment 中列出，集合差为空。"
+    - item: "R9 rubric_self_check 全 true 且 evidence 非空"
+      passed: true
+      evidence: "本列表 10 项 passed 均为 true，每项 evidence 为具体非空字符串。"
+    - item: "R10 设计在 token_budget(500) 内可生成一个示例"
+      passed: true
+      evidence: "示例 sum_numeric_list 的 intent_source 仅 3 行约 12 个 token，远低于 500 上限。"

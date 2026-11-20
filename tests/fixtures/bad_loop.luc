@@ -1,0 +1,5 @@
+fn Total(numbers: List<Int>) -> Int pure
+from numbers
+for x in numbers
+yield total
+end

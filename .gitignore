@@ -1,0 +1,8 @@
+node_modules/
+tests/.tmp/
+bin/
+obj/
+*.exe
+*.obj
+*.pdb
+.DS_Store

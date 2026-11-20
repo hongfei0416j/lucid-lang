@@ -1,0 +1,6 @@
+fn AdultCount(users: List<User>) -> Int pure
+from users
+via filter(age >= 18)
+via reduce(count)
+yield adults
+end

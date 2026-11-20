@@ -1,0 +1,111 @@
+# Lucid
+
+> AI 只写「意图」，机器负责「实现」。语法、类型、效果在展开前拦截，产物逐字节可复现。
+
+Lucid 是一门极小的意图语言：模型只写四类声明（`fn` / `from` / `via` / `yield`），
+本地展开器查表生成宿主代码。没有循环、没有 import、没有模板拼贴——**模型没有机会把宿主语言的隐式行为带进来**。
+
+## 为什么
+
+让模型直接写 C#，失败通常不在业务逻辑，而在这几处：反复生成样板、调不存在的 API、空值处理每次不同、同一需求两次生成结果不一致。
+Lucid 把这些问题从"模型自觉"变成"系统强制"：
+
+| 问题 | Lucid 的做法 |
+|---|---|
+| 样板代码吃掉 token | 展开器吸收样板，模型只写意图 |
+| 幻觉出不存在的算子/API | 表外一律拒绝，报 `E_TYPE_UNKNOWN_OPERATOR` |
+| 每次生成都不一样 | 同 AST + 同 schema → 逐字节相同，CI 做两次展开 diff |
+| 错误发现太晚 | lex / parse / typecheck / effectcheck 四段拦截，全部在展开前 |
+
+## 快速开始
+
+环境：Node.js ≥ 18；端到端验证需要 .NET SDK ≥ 10。
+
+```bash
+npm run ci
+```
+
+手动两步：
+
+```bash
+node expander/cli.mjs check  examples/sum.luc --schema spec/schema.json
+node expander/cli.mjs expand examples/sum.luc --target csharp --schema spec/schema.json
+```
+
+想短一点：`npm link` 之后直接用 `lucid check ...` / `lucid expand ...`。
+
+## 一个完整例子
+
+意图 `examples/adults.luc`：
+
+```lucid
+fn AdultCount(users: List<User>) -> Int pure
+from users
+via filter(age >= 18)
+via reduce(count)
+yield adults
+end
+```
+
+展开结果：
+
+```csharp
+public static int AdultCount(User[] users)
+{
+    var adults = users.Where(x => x.age >= 18).Count();
+    return adults;
+}
+```
+
+门禁拦下一个幻觉算子：
+
+```json
+{"code":"E_TYPE_UNKNOWN_OPERATOR","phase":"typecheck","message":"算子 'flatMap' 未在 operators.yaml 注册（禁止表外算子）","function":"Ages","line":4,"op":"flatMap"}
+```
+
+## 目录
+
+| 路径 | 作用 |
+|---|---|
+| `AGENTS.md` | **AI 入口**：目录地图、硬不变量、任务→改哪里、已知坑 |
+| `docs/cheatsheet.md` | 语法与错误码速查 |
+| `operators.yaml` | 算子唯一注册表（签名 + 宿主模板） |
+| `expander/` | 词法 / 语法 / 检查 / 渲染 + CLI |
+| `spec/` | 文法、数据源 schema、审查 rubric |
+| `prompts/` | 四个角色指令 + 单模型总控 |
+| `examples/` | 三个可运行意图、C# 完整宿主样例、C++ 形态参照 |
+| `tests/` | 门禁正反例、确定性、端到端 |
+
+## 硬不变量
+
+**守住**：分层边界 / 编译期拦截 / 展开确定性 / 纯函数单管道。
+**放弃**：表达力（仅 5 个算子）、自动优化、多目标语言。
+
+完整判定表见 [spec/rubric.md](spec/rubric.md)。
+
+## 角色工作流
+
+作者 → 门禁 → 展开 → CI → 审查，四段各有独立目标函数。
+单模型时用 [prompts/single-model.md](prompts/single-model.md)，禁止自动连跳——连跳会让审查顺手"修好"问题，独立性失效。
+
+## 状态与限制
+
+- 算子 5 个：`reduce` `filter` `map` `sort` `take`
+- 目标语言仅 `csharp`；`examples/cpp/main.cpp` 是手写参照，**未编译验证**
+- `examples/csharp/Program.cs` 需要 .NET 10+（单文件 `#:property` 指令）
+- 7 个反例 fixture，全部按预期错误码打回
+
+## 路线图
+
+- v0.2：`select` / `group` / `join`（需先补类型规则、错误码与测试）
+- v0.3：`Result<T,E>` 与失败路径
+- 待定：`--target cpp`（需完整工具链与 e2e）
+
+## 贡献
+
+先读 [AGENTS.md](AGENTS.md)。新增算子必须四件套齐全：算子表模板 + 类型规则 + 错误码 + 测试用例。
+提交前跑 `npm run ci`，红了不要提 PR。
+
+## 许可
+
+[MIT](LICENSE)

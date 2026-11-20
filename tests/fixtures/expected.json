@@ -1,0 +1,9 @@
+{
+  "bad_loop.luc": "E_PARSE_MISSING_CLAUSE",
+  "bad_import.luc": "E_LEX_UNEXPECTED_CHAR",
+  "bad_unknown_op.luc": "E_TYPE_UNKNOWN_OPERATOR",
+  "bad_field.luc": "E_TYPE_UNDEFINED_FIELD",
+  "bad_type.luc": "E_TYPE_MISMATCH",
+  "bad_effect.luc": "E_EFFECT_UNKNOWN_EFFECT",
+  "bad_noeffect.luc": "E_EFFECT_MISSING"
+}

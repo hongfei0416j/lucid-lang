@@ -1,0 +1,6 @@
+fn Weird(users: List<User>) -> Int pure
+from users
+via map(name)
+via reduce(sum)
+yield total
+end
