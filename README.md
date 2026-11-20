@@ -81,6 +81,8 @@ public static int AdultCount(List<User> users) {
 }
 ```
 
+各目标的类型映射、宿主职责、可运行样例与运行命令见 [docs/targets.md](docs/targets.md)。
+
 门禁拦下一个幻觉算子：
 
 ```json
@@ -93,11 +95,12 @@ public static int AdultCount(List<User> users) {
 |---|---|
 | `AGENTS.md` | **AI 入口**：目录地图、硬不变量、任务→改哪里、已知坑 |
 | `docs/cheatsheet.md` | 语法与错误码速查 |
-| `operators.yaml` | 算子唯一注册表（签名 + 宿主模板） |
-| `expander/` | 词法 / 语法 / 检查 / 渲染 + CLI |
+| `docs/targets.md` | 目标语言使用手册：类型映射、宿主职责、运行方式 |
+| `operators.yaml` | 算子唯一注册表（签名 + 4 门宿主模板） |
+| `expander/` | 词法 / 语法 / 检查 / 渲染（render-common + 4 门渲染器）+ CLI |
 | `spec/` | 文法、数据源 schema、审查 rubric |
 | `prompts/` | 四个角色指令 + 单模型总控 |
-| `examples/` | 三个可运行意图、C# 完整宿主样例、C++ 形态参照 |
+| `examples/` | 三个可运行意图 + C#/TypeScript/Python/Java 完整宿主样例 + C++ 形态参照 |
 | `tests/` | 门禁正反例、确定性、端到端 |
 
 ## 硬不变量

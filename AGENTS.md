@@ -23,6 +23,7 @@ npm run ci:e2e         # 展开产物真实编译运行（dotnet / tsc+node / py
 | 路径 | 作用 | 什么时候读 |
 |---|---|---|
 | `docs/cheatsheet.md` | 语法唯一来源 + 错误码速查 | 写 `.luc` 前 |
+| `docs/targets.md` | 目标语言使用手册（类型映射、宿主职责、运行命令） | 换目标 / 接宿主 |
 | `expander/cli.mjs` | `check` / `expand` 入口 | 改命令行为 |
 | `expander/tokenizer.mjs` | 词法 + token 对齐 | 改语法 |
 | `expander/parser.mjs` | LL(1) 递归下降 → Intent AST | 改语法 |
@@ -39,6 +40,9 @@ npm run ci:e2e         # 展开产物真实编译运行（dotnet / tsc+node / py
 | `prompts/*.md` | 4 个角色指令 + 单模型总控 | 分角色协作 |
 | `tests/fixtures/` | 7 个反例 + `expected.json` | 加拦截规则 |
 | `examples/csharp/Program.cs` | 完整可运行 C# 宿主样例（records + 生成方法 + Main） | 看宿主侧集成形态 |
+| `examples/typescript/main.ts` | 完整可运行 TS 宿主样例（type + export function + 调用） | 看 TS 宿主集成 |
+| `examples/python/main.py` | 完整可运行 Python 宿主样例（dataclass + 函数 + 调用） | 看 Python 宿主集成 |
+| `examples/java/Main.java` | 完整可运行 Java 宿主样例（record + 方法 + main，JDK 17+） | 看 Java 宿主集成 |
 | `examples/cpp/main.cpp` | C++ 形态**参照**（手写、非生成、本机未编译验证） | 评估 C++ 宿主时 |
 | `docs/history/flume_lds.yaml` | 第一版 TypeScript 设计（历史参考） | 追溯设计决策 |
 

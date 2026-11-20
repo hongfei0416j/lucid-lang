@@ -61,6 +61,8 @@ Lucid 的做法是把这四件事从"模型自觉"改成"系统强制"：
   node expander/cli.mjs expand examples/sum.luc --target python --schema spec/schema.json
   node expander/cli.mjs expand examples/sum.luc --target java --schema spec/schema.json
 
+各目标的类型映射、宿主职责与完整运行命令见 docs/targets.md。
+
 
 --------------------------------------------------------------------------------
 4. 三层结构
@@ -186,6 +188,7 @@ Lucid 的做法是把这四件事从"模型自觉"改成"系统强制"：
   LICENSE               MIT
 
   docs/cheatsheet.md    语法与错误码速查（写给模型看的）
+  docs/targets.md       目标语言使用手册：类型映射 / 宿主职责 / 运行方式
   docs/history/         历史设计（第一版 TypeScript 方案）
 
   operators.yaml        算子唯一注册表：签名 + 4 门目标模板
@@ -207,6 +210,9 @@ Lucid 的做法是把这四件事从"模型自觉"改成"系统强制"：
   examples/*.luc        三个可运行意图
   examples/cases.json   输入与预期输出
   examples/csharp/      完整可运行 C# 宿主样例
+  examples/typescript/  完整可运行 TypeScript 宿主样例（main.ts）
+  examples/python/      完整可运行 Python 宿主样例（main.py）
+  examples/java/        完整可运行 Java 宿主样例（Main.java，JDK 17+）
   examples/cpp/         C++ 形态参照（手写，未编译验证）
 
   prompts/author.md     角色：写意图
