@@ -18,6 +18,29 @@ Lucid 把这些问题从"模型自觉"变成"系统强制"：
 | 每次生成都不一样 | 同 AST + 同 schema → 逐字节相同，CI 做两次展开 diff |
 | 错误发现太晚 | lex / parse / typecheck / effectcheck 四段拦截，全部在展开前 |
 
+## Token 成本对比
+
+省 token 的主要来源不是「少写几行」，而是「一份意图 → 多门宿主代码」以及把返工挡在展开之前。以下基于仓库内 3 个示例的真实展开产物（字符数 ÷ 4 估算 token，不含宿主胶水与 schema）：
+
+![单函数输出 token 对比](docs/assets/token-per-function.svg)
+
+单函数：意图 28 tokens；C# / TypeScript / Python / Java 分别 34 / 36 / 34 / 43，四门合计 147。
+即单语言省约 24%，四语言省约 81%。计入直接开发平均 1.3~1.5 轮返工后：
+
+![项目级 token 对比](docs/assets/token-project-cost.svg)
+
+| 管道函数数（4 门语言） | 直接开发 | Lucid | 节省 |
+|---|---|---|---|
+| 20 | ~13.4k | ~1.8k | 86% |
+| 50 | ~33.6k | ~3.4k | 90% |
+| 200 | ~134k | ~12k | 91% |
+
+口径与边界：
+
+- 只统计模型输出 token；宿主胶水（`record` / `import` / `main`）和 `schema` 两种方式都要写，不构成节省。
+- 搭建展开器本身约 31k tokens 源码（真实对话消耗通常是它的 3~8 倍）；四门语言 + 真实函数规模下，约 250~550 个管道函数回本。
+- 单语言、一次性脚本、或逻辑超出 5 个算子的项目，token 收益接近 0 甚至为负；这类场景的价值在确定性与审查成本，而不是 token。
+
 ## 快速开始
 
 环境：Node.js ≥ 18。端到端验证另需 .NET SDK ≥ 10、Python 3、JDK ≥ 17；TypeScript 由 `npm install` 装入的 `typescript` 编译校验。

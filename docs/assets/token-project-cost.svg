@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="400" viewBox="0 0 760 400" role="img" aria-label="项目级 token 消耗对比：直接开发 vs Lucid">
+  <style>
+    .bg { fill: #ffffff; }
+    .grid { stroke: #d8dee4; stroke-width: 1; }
+    .axis { stroke: #afb8c1; stroke-width: 1.5; }
+    .label { fill: #1f2328; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; }
+    .muted { fill: #59636e; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; }
+    .value { fill: #1f2328; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; font-weight: 600; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0d1117; }
+      .grid { stroke: #30363d; }
+      .axis { stroke: #484f58; }
+      .label { fill: #e6edf3; }
+      .muted { fill: #9198a1; }
+      .value { fill: #e6edf3; }
+    }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="760" height="400" rx="12"/>
+
+  <text class="label" x="32" y="38" font-size="16" font-weight="700">项目级 token 消耗（4 门语言，含 1.4× 返工系数）</text>
+  <text class="muted" x="32" y="60" font-size="12.5">管道函数越多，净节省越接近 90%；不含一次性搭建展开器的成本</text>
+
+  <!-- 图例 -->
+  <rect x="548" y="80" width="12" height="12" rx="2" fill="#d1242f"/>
+  <text class="muted" x="566" y="90" font-size="12">直接让 AI 写 4 门语言</text>
+  <rect x="548" y="100" width="12" height="12" rx="2" fill="#2da44e"/>
+  <text class="muted" x="566" y="110" font-size="12">Lucid 写意图 + 展开</text>
+
+  <!-- 网格与刻度 -->
+  <line class="grid" x1="64" y1="316" x2="736" y2="316"/>
+  <line class="grid" x1="64" y1="242.7" x2="736" y2="242.7"/>
+  <line class="grid" x1="64" y1="169.3" x2="736" y2="169.3"/>
+  <line class="grid" x1="64" y1="96" x2="736" y2="96"/>
+  <text class="muted" x="56" y="320" font-size="11" text-anchor="end">0</text>
+  <text class="muted" x="56" y="246" font-size="11" text-anchor="end">50k</text>
+  <text class="muted" x="56" y="173" font-size="11" text-anchor="end">100k</text>
+  <text class="muted" x="56" y="100" font-size="11" text-anchor="end">150k</text>
+  <line class="axis" x1="64" y1="96" x2="64" y2="316"/>
+
+  <!-- F=20：direct 13440 -> h=19.7 ; lucid 1845 -> h=2.7 -->
+  <rect x="112" y="296.3" width="64" height="19.7" rx="4" fill="#d1242f"/>
+  <text class="value" x="144" y="290" font-size="11" text-anchor="middle">13.4k</text>
+  <rect x="188" y="313.3" width="64" height="2.7" rx="1.5" fill="#2da44e"/>
+  <text class="value" x="220" y="307" font-size="11" text-anchor="middle">1.8k</text>
+  <text class="muted" x="182" y="340" font-size="12.5" text-anchor="middle">F=20</text>
+  <text class="muted" x="182" y="356" font-size="11" text-anchor="middle">省 86%</text>
+
+  <!-- F=50：direct 33600 -> h=49.3 ; lucid 3413 -> h=5.0 -->
+  <rect x="336" y="266.7" width="64" height="49.3" rx="4" fill="#d1242f"/>
+  <text class="value" x="368" y="260" font-size="11" text-anchor="middle">33.6k</text>
+  <rect x="412" y="311" width="64" height="5" rx="2" fill="#2da44e"/>
+  <text class="value" x="444" y="305" font-size="11" text-anchor="middle">3.4k</text>
+  <text class="muted" x="406" y="340" font-size="12.5" text-anchor="middle">F=50</text>
+  <text class="muted" x="406" y="356" font-size="11" text-anchor="middle">省 90%</text>
+
+  <!-- F=200：direct 134400 -> h=197.1 ; lucid 12000 -> h=17.6 -->
+  <rect x="560" y="118.9" width="64" height="197.1" rx="4" fill="#d1242f"/>
+  <text class="value" x="592" y="112" font-size="11" text-anchor="middle">134k</text>
+  <rect x="636" y="298.4" width="64" height="17.6" rx="4" fill="#2da44e"/>
+  <text class="value" x="668" y="292" font-size="11" text-anchor="middle">12k</text>
+  <text class="muted" x="630" y="340" font-size="12.5" text-anchor="middle">F=200</text>
+  <text class="muted" x="630" y="356" font-size="11" text-anchor="middle">省 91%</text>
+
+  <text class="muted" x="32" y="382" font-size="11">假设：每函数每门语言约 120 tokens、意图约 45 tokens、直接开发返工系数 1.4；F = 管道函数数。</text>
+</svg>

@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="380" viewBox="0 0 760 380" role="img" aria-label="单函数输出 token 对比：意图 28，四门语言合计 147">
+  <style>
+    .bg { fill: #ffffff; }
+    .grid { stroke: #d8dee4; stroke-width: 1; }
+    .axis { stroke: #afb8c1; stroke-width: 1.5; }
+    .label { fill: #1f2328; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; }
+    .muted { fill: #59636e; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; }
+    .value { fill: #1f2328; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; font-weight: 600; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0d1117; }
+      .grid { stroke: #30363d; }
+      .axis { stroke: #484f58; }
+      .label { fill: #e6edf3; }
+      .muted { fill: #9198a1; }
+      .value { fill: #e6edf3; }
+    }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="760" height="380" rx="12"/>
+
+  <text class="label" x="32" y="38" font-size="16" font-weight="700">单函数输出 token（3 个示例均摊）</text>
+  <text class="muted" x="32" y="60" font-size="12.5">写意图 28 tokens；同一意图生成四门语言共 147 tokens，节省约 81%</text>
+
+  <!-- 网格与刻度 -->
+  <line class="grid" x1="56" y1="308" x2="736" y2="308"/>
+  <line class="grid" x1="56" y1="252" x2="736" y2="252"/>
+  <line class="grid" x1="56" y1="196" x2="736" y2="196"/>
+  <line class="grid" x1="56" y1="140" x2="736" y2="140"/>
+  <line class="grid" x1="56" y1="84" x2="736" y2="84"/>
+  <text class="muted" x="48" y="312" font-size="11" text-anchor="end">0</text>
+  <text class="muted" x="48" y="256" font-size="11" text-anchor="end">40</text>
+  <text class="muted" x="48" y="200" font-size="11" text-anchor="end">80</text>
+  <text class="muted" x="48" y="144" font-size="11" text-anchor="end">120</text>
+  <text class="muted" x="48" y="88" font-size="11" text-anchor="end">160</text>
+  <line class="axis" x1="56" y1="84" x2="56" y2="308"/>
+
+  <!-- 意图：28 -->
+  <rect x="85" y="268.8" width="52" height="39.2" rx="4" fill="#2da44e"/>
+  <text class="value" x="111" y="262" font-size="12" text-anchor="middle">28</text>
+  <text class="muted" x="111" y="330" font-size="12.5" text-anchor="middle">意图 .luc</text>
+
+  <!-- C#：34 -->
+  <rect x="198" y="260.4" width="52" height="47.6" rx="4" fill="#4c8eda"/>
+  <text class="value" x="224" y="254" font-size="12" text-anchor="middle">34</text>
+  <text class="muted" x="224" y="330" font-size="12.5" text-anchor="middle">C#</text>
+
+  <!-- TypeScript：36 -->
+  <rect x="311" y="257.6" width="52" height="50.4" rx="4" fill="#4c8eda"/>
+  <text class="value" x="337" y="251" font-size="12" text-anchor="middle">36</text>
+  <text class="muted" x="337" y="330" font-size="12.5" text-anchor="middle">TypeScript</text>
+
+  <!-- Python：34 -->
+  <rect x="424" y="260.4" width="52" height="47.6" rx="4" fill="#4c8eda"/>
+  <text class="value" x="450" y="254" font-size="12" text-anchor="middle">34</text>
+  <text class="muted" x="450" y="330" font-size="12.5" text-anchor="middle">Python</text>
+
+  <!-- Java：43 -->
+  <rect x="537" y="247.8" width="52" height="60.2" rx="4" fill="#4c8eda"/>
+  <text class="value" x="563" y="241" font-size="12" text-anchor="middle">43</text>
+  <text class="muted" x="563" y="330" font-size="12.5" text-anchor="middle">Java</text>
+
+  <!-- 四语言合计：147 -->
+  <rect x="650" y="102.2" width="52" height="205.8" rx="4" fill="#d97706"/>
+  <text class="value" x="676" y="95" font-size="12" text-anchor="middle">147</text>
+  <text class="muted" x="676" y="330" font-size="12.5" text-anchor="middle">四语言合计</text>
+
+  <text class="muted" x="32" y="360" font-size="11">口径：3 个示例（sum / adults / cheapest）展开产物字符数 ÷ 4；不含宿主胶水与 schema。</text>
+</svg>
