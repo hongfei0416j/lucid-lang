@@ -1,9 +1,17 @@
 # Lucid 算子注册表（expand 阶段唯一查表依据）
 # 约定：
 #   - 表外算子在 typecheck 阶段直接被拒（E_TYPE_UNKNOWN_OPERATOR），不存在“未定义但可用”。
-#   - 模板占位符：{prev} 上一节点表达式、{field} 字段名、{op} 比较符、{literal} 字面量、{n} 数字
+#   - 每个算子必须同时登记 4 个目标：csharp / typescript / python / java，缺一门由 loadRegistry 直接报错。
+#   - 模板占位符：
+#       {prev}     上一节点表达式
+#       {field}    裸字段名（仅供模板自定义拼接）
+#       {fieldRef} 字段访问表达式（C#/TS/Python: x.age；Java: x.age()）
+#       {pred}     单字段谓词表达式（如 x.age >= 18）
+#       {literal}  字面量
+#       {n}        数字
+#       {rec}      记录类型名（Java 排序比较器需要显式参数类型）
 #   - 类型规则由 expander/checker.mjs 实现，本表只登记签名与展开模板，避免"规则写成人话却不执行"。
-#   - v0.1 只注册 5 个算子；select/join/group 暂不注册（无门禁覆盖前不引入新抽象）。
+#   - 只注册 5 个算子；select/join/group 暂不注册（无门禁覆盖前不引入新抽象）。
 
 - name: reduce
   signature: "reduce(agg) -> Int"
@@ -17,6 +25,21 @@
     count: "{prev}.Count()"
     min: "{prev}.Min()"
     max: "{prev}.Max()"
+  typescript:
+    sum: "{prev}.reduce((acc, item) => acc + item, 0)"
+    count: "{prev}.length"
+    min: "Math.min(...{prev})"
+    max: "Math.max(...{prev})"
+  python:
+    sum: "sum({prev})"
+    count: "len({prev})"
+    min: "min({prev})"
+    max: "max({prev})"
+  java:
+    sum: "{prev}.mapToInt(Integer::intValue).sum()"
+    count: "(int) {prev}.count()"
+    min: "{prev}.mapToInt(Integer::intValue).min().orElseThrow()"
+    max: "{prev}.mapToInt(Integer::intValue).max().orElseThrow()"
 
 - name: filter
   signature: "filter(field cmp literal) -> List<T>"
@@ -24,9 +47,15 @@
   effect: pure
   terminates_chain: "false"
   type_rule: "List<Record> -> List<Record>; field 必须存在于记录 schema; literal 类型必须与 field 类型一致"
-  expands_to: "单字段谓词下推为宿主 Where; 不支持复合布尔表达式(无 and/or)"
+  expands_to: "单字段谓词下推为宿主 Where/filter; 不支持复合布尔表达式(无 and/or)"
   csharp:
-    default: "{prev}.Where(x => x.{field} {op} {literal})"
+    default: "{prev}.Where(x => {pred})"
+  typescript:
+    default: "{prev}.filter((x) => {pred})"
+  python:
+    default: "[x for x in {prev} if {pred}]"
+  java:
+    default: "{prev}.filter(x -> {pred})"
 
 - name: map
   signature: "map(field) -> List<T>"
@@ -34,9 +63,15 @@
   effect: pure
   terminates_chain: "false"
   type_rule: "List<Record> -> List<fieldType>; field 必须存在"
-  expands_to: "记录投影为单字段序列 (Select)"
+  expands_to: "记录投影为单字段序列 (Select/投影)"
   csharp:
-    default: "{prev}.Select(x => x.{field})"
+    default: "{prev}.Select(x => {fieldRef})"
+  typescript:
+    default: "{prev}.map((x) => {fieldRef})"
+  python:
+    default: "[{fieldRef} for x in {prev}]"
+  java:
+    default: "{prev}.map(x -> {fieldRef})"
 
 - name: sort
   signature: "sort(field, dir) -> List<T>"
@@ -44,10 +79,19 @@
   effect: pure
   terminates_chain: "false"
   type_rule: "List<Record> -> List<Record>; field 必须存在且为 Int; dir in {asc,desc}"
-  expands_to: "按字段做稳定排序 (OrderBy/OrderByDescending)，不改动输入序列"
+  expands_to: "按字段做稳定排序，不改动输入序列"
   csharp:
-    asc: "{prev}.OrderBy(x => x.{field})"
-    desc: "{prev}.OrderByDescending(x => x.{field})"
+    asc: "{prev}.OrderBy(x => {fieldRef})"
+    desc: "{prev}.OrderByDescending(x => {fieldRef})"
+  typescript:
+    asc: "[...{prev}].sort((a, b) => a.{field} - b.{field})"
+    desc: "[...{prev}].sort((a, b) => b.{field} - a.{field})"
+  python:
+    asc: "sorted({prev}, key=lambda x: {fieldRef})"
+    desc: "sorted({prev}, key=lambda x: {fieldRef}, reverse=True)"
+  java:
+    asc: "{prev}.sorted(Comparator.comparingInt(({rec} x) -> {fieldRef}))"
+    desc: "{prev}.sorted(Comparator.comparingInt(({rec} x) -> {fieldRef}).reversed())"
 
 - name: take
   signature: "take(n) -> List<T>"
@@ -58,3 +102,9 @@
   expands_to: "取前 n 项; n 超长不报错，结果为全量"
   csharp:
     default: "{prev}.Take({n})"
+  typescript:
+    default: "{prev}.slice(0, {n})"
+  python:
+    default: "{prev}[:{n}]"
+  java:
+    default: "{prev}.limit({n})"

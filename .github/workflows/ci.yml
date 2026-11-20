@@ -15,9 +15,21 @@ jobs:
         with:
           node-version: "20"
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
 
-      - name: 门禁 + 确定性 + 端到端
+      - name: 安装开发依赖（typescript，仅用于 TS e2e 编译校验）
+        run: npm install --no-audit --no-fund
+
+      - name: 门禁 + 确定性 + 4 语言端到端
         run: npm run ci

@@ -2,7 +2,7 @@
 // Lucid CLI —— 门禁与展开器，模型不参与这一步（对应 workflows 的“系统”环节）
 //
 //   lucid check  <file|dir...> --schema spec/schema.json [--budget 500]
-//   lucid expand <file> --target csharp --schema spec/schema.json
+//   lucid expand <file> --target <csharp|typescript|python|java> --schema spec/schema.json
 //
 // 退出码：0 通过；1 存在错误。stdout 为机器可解析 JSON / 展开代码，stderr 为人类可读信息。
 
@@ -12,12 +12,24 @@ import { fileURLToPath } from 'node:url';
 import { parse } from './parser.mjs';
 import { check } from './checker.mjs';
 import { loadRegistry } from './operators.mjs';
-import { renderModule } from './render-csharp.mjs';
+import { renderModule as renderCsharp } from './render-csharp.mjs';
+import { renderModule as renderJava } from './render-java.mjs';
+import { renderModule as renderPython } from './render-python.mjs';
+import { renderModule as renderTypeScript } from './render-typescript.mjs';
 import { tokenize } from './tokenizer.mjs';
 
 // 相对模块定位，不依赖 cwd —— 全局安装后也能找到算子表
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REGISTRY_PATH = path.resolve(HERE, '..', 'operators.yaml');
+
+// 已注册目标 → 渲染器。未注册目标一律 E_EXPAND_UNSUPPORTED_TARGET（规则 D3）。
+const RENDERERS = {
+  csharp: renderCsharp,
+  typescript: renderTypeScript,
+  python: renderPython,
+  java: renderJava,
+};
+const TARGETS = Object.keys(RENDERERS);
 
 function parseArgv(argv) {
   const opts = {};
@@ -100,16 +112,17 @@ function main() {
 
   if (cmd === 'expand') {
     if (targets.length !== 1) {
-      console.error('用法: lucid expand <file.luc> --target csharp --schema <path>');
+      console.error(`用法: lucid expand <file.luc> --target ${TARGETS.join('|')} --schema <path>`);
       process.exit(2);
     }
     const target = opts.target || 'csharp';
     const schema = loadSchema(opts.schema);
 
-    if (target !== 'csharp') {
+    const renderer = RENDERERS[target];
+    if (!renderer) {
       console.error(JSON.stringify({
         code: 'E_EXPAND_UNSUPPORTED_TARGET', phase: 'expand',
-        message: `v0.1 只支持 --target csharp，实际为 '${target}'`,
+        message: `只支持 --target ${TARGETS.join('|')}，实际为 '${target}'`,
       }));
       process.exit(1);
     }
@@ -119,7 +132,7 @@ function main() {
       for (const e of errors) console.error(JSON.stringify(e));
       process.exit(1);
     }
-    process.stdout.write(renderModule(ast, registry));
+    process.stdout.write(renderer(ast, registry));
     process.exit(0);
   }
 

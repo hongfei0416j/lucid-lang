@@ -4,10 +4,11 @@
 
 Lucid 是一门极小的意图语言：模型只写四类声明（`fn` / `from` / `via` / `yield`），
 本地展开器查表生成宿主代码。没有循环、没有 import、没有模板拼贴——**模型没有机会把宿主语言的隐式行为带进来**。
+当前注册了 4 个目标：`csharp` / `typescript` / `python` / `java`。
 
 ## 为什么
 
-让模型直接写 C#，失败通常不在业务逻辑，而在这几处：反复生成样板、调不存在的 API、空值处理每次不同、同一需求两次生成结果不一致。
+让模型直接写宿主代码，失败通常不在业务逻辑，而在这几处：反复生成样板、调不存在的 API、空值处理每次不同、同一需求两次生成结果不一致。
 Lucid 把这些问题从"模型自觉"变成"系统强制"：
 
 | 问题 | Lucid 的做法 |
@@ -19,9 +20,10 @@ Lucid 把这些问题从"模型自觉"变成"系统强制"：
 
 ## 快速开始
 
-环境：Node.js ≥ 18；端到端验证需要 .NET SDK ≥ 10。
+环境：Node.js ≥ 18。端到端验证另需 .NET SDK ≥ 10、Python 3、JDK ≥ 17；TypeScript 由 `npm install` 装入的 `typescript` 编译校验。
 
 ```bash
+npm install    # 只装 typescript（devDependency，用于 e2e 编译检查）
 npm run ci
 ```
 
@@ -31,6 +33,8 @@ npm run ci
 node expander/cli.mjs check  examples/sum.luc --schema spec/schema.json
 node expander/cli.mjs expand examples/sum.luc --target csharp --schema spec/schema.json
 ```
+
+`--target` 可取 `csharp` / `typescript` / `python` / `java`，未注册目标报 `E_EXPAND_UNSUPPORTED_TARGET`。
 
 想短一点：`npm link` 之后直接用 `lucid check ...` / `lucid expand ...`。
 
@@ -47,12 +51,32 @@ yield adults
 end
 ```
 
-展开结果：
+同一份意图展开成四种宿主代码：
 
 ```csharp
 public static int AdultCount(User[] users)
 {
     var adults = users.Where(x => x.age >= 18).Count();
+    return adults;
+}
+```
+
+```typescript
+export function AdultCount(users: User[]): number {
+  const adults = users.filter((x) => x.age >= 18).length;
+  return adults;
+}
+```
+
+```python
+def AdultCount(users: List[User]) -> int:
+    adults = len([x for x in users if x.age >= 18])
+    return adults
+```
+
+```java
+public static int AdultCount(List<User> users) {
+    var adults = (int) users.stream().filter(x -> x.age() >= 18).count();
     return adults;
 }
 ```
@@ -79,7 +103,7 @@ public static int AdultCount(User[] users)
 ## 硬不变量
 
 **守住**：分层边界 / 编译期拦截 / 展开确定性 / 纯函数单管道。
-**放弃**：表达力（仅 5 个算子）、自动优化、多目标语言。
+**放弃**：表达力（仅 5 个算子）、自动优化、任意多目标（只维护已注册的 4 个目标）。
 
 完整判定表见 [spec/rubric.md](spec/rubric.md)。
 
@@ -91,7 +115,8 @@ public static int AdultCount(User[] users)
 ## 状态与限制
 
 - 算子 5 个：`reduce` `filter` `map` `sort` `take`
-- 目标语言仅 `csharp`；`examples/cpp/main.cpp` 是手写参照，**未编译验证**
+- 目标语言 4 个：`csharp` / `typescript` / `python` / `java`，每个目标在 CI 里真实编译运行
+- `examples/cpp/main.cpp` 是手写参照，**未编译验证**（C++ 尚未注册为正式目标）
 - `examples/csharp/Program.cs` 需要 .NET 10+（单文件 `#:property` 指令）
 - 7 个反例 fixture，全部按预期错误码打回
 
@@ -99,7 +124,7 @@ public static int AdultCount(User[] users)
 
 - v0.2：`select` / `group` / `join`（需先补类型规则、错误码与测试）
 - v0.3：`Result<T,E>` 与失败路径
-- 待定：`--target cpp`（需完整工具链与 e2e）
+- 待定：`--target cpp` / `go` / `rust`（需完整工具链与 e2e）
 
 ## 贡献
 

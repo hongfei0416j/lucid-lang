@@ -5,7 +5,7 @@
 ## 唯一允许的动作
 
 ```bash
-node expander/cli.mjs expand <file>.luc --target csharp --schema spec/schema.json
+node expander/cli.mjs expand <file>.luc --target <csharp|typescript|python|java> --schema spec/schema.json
 ```
 
 把 stdout **原样**贴回，一个字符都不改。

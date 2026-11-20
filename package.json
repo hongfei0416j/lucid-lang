@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "AI 只写声明式意图（.luc），本地展开器确定性生成 C#；语法/类型/效果在展开前拦截。",
+  "description": "AI 只写声明式意图（.luc），本地展开器确定性生成 C#/TypeScript/Python/Java；语法/类型/效果在展开前拦截。",
   "license": "MIT",
   "engines": {
     "node": ">=18"
@@ -17,8 +17,14 @@
     "deterministic",
     "typescript-free",
     "csharp",
+    "typescript",
+    "python",
+    "java",
     "intent-language"
   ],
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  },
   "scripts": {
     "gate": "node expander/cli.mjs check examples --schema spec/schema.json --budget 500",
     "expand": "node expander/cli.mjs expand examples/cheapest.luc --target csharp --schema spec/schema.json",

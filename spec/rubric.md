@@ -56,4 +56,4 @@
 | P4 | 纯函数单管道：每函数 `pure`、单 `from`、一条管道 | HARD | 数 `from` 次数 = 1；gate 无 `E_EFFECT_*` |
 | D1 | 放弃表达力：只允许 5 个注册算子；扩展须先申报并补齐模板/类型规则/错误码/测试 | HARD | 对照 `operators.yaml`，超范围即 fail |
 | D2 | 放弃优化：产物只由算子模板拼装，不得重排/合并/内联/去冗余 | HARD | 展开结果与 `operators.yaml` 模板一一对应 |
-| D3 | 放弃多目标：v0.1 只支持 `csharp` | HARD | 非 `csharp` 必须报 `E_EXPAND_UNSUPPORTED_TARGET` |
+| D3 | 放弃多目标：只维护注册表里的 4 个目标（`csharp` / `typescript` / `python` / `java`） | HARD | 非注册目标必须报 `E_EXPAND_UNSUPPORTED_TARGET`；`operators.yaml` 每个算子 4 门模板必须齐全 |

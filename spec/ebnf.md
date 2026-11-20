@@ -73,12 +73,12 @@ intent   = "from" IDENT NEWLINE "via" "reduce" "(" "sum" ")" NEWLINE "yield" IDE
   └─ expand    → E_EXPAND_*         （模板缺失、目标不支持）
 ```
 
-实现：`expander/{tokenizer,parser,checker,render-csharp}.mjs`，CLI 见 `expander/cli.mjs`。
+实现：`expander/{tokenizer,parser,checker,render-common,render-csharp,render-typescript,render-python,render-java}.mjs`，CLI 见 `expander/cli.mjs`。
 所有拦截都在展开**之前**完成，不依赖运行时检查（规避 A6）。
 
 ## 5. 确定性契约
 
-- 渲染器只做字符串模板替换 + 尾部 `.ToArray()`
+- 渲染器只做字符串模板替换 + 尾部类型适配（C# `.ToArray()`、Java `.collect(...)`、TS/Python 无）
 - 不读时钟、随机数、环境变量、全局配置；schema 通过 `--schema` 显式传入
 - 相同 `(AST, schema, operators.yaml)` → 逐字节相同输出
 - CI 验证：`npm run ci:determinism`（展开两次比对 sha256）

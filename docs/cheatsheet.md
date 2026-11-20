@@ -34,6 +34,11 @@ end
 
 表外算子一律被拒（`E_TYPE_UNKNOWN_OPERATOR`）。需要新算子 → 先申报，不要偷偷用。
 
+## 目标语言
+
+`--target` 可选 `csharp` / `typescript` / `python` / `java`；未注册目标一律报 `E_EXPAND_UNSUPPORTED_TARGET`。
+每个算子在 `operators.yaml` 中必须同时登记这 4 门模板，缺一门在加载期直接报错。
+
 ## 禁止
 
 - `if` / `else` / `for` / `while` / `switch`

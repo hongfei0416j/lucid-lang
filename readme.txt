@@ -3,7 +3,10 @@ Lucid 0.1  --  AI 写意图，机器写实现
 ================================================================================
 
 许可 : MIT
-环境 : Node.js >= 18（端到端验证另需 .NET SDK >= 10）
+环境 : Node.js >= 18
+       端到端验证另需 .NET SDK >= 10、Python 3、JDK >= 17
+       TypeScript 由 npm install 装入的 typescript 编译校验
+目标 : csharp / typescript / python / java
 
 为什么写这个文件
   给不熟悉本项目的人（以及三个月后的自己）一份不依赖 Markdown 渲染的完整说明。
@@ -42,17 +45,21 @@ Lucid 的做法是把这四件事从"模型自觉"改成"系统强制"：
 --------------------------------------------------------------------------------
 在项目根目录执行：
 
+  npm install     # 只装 typescript（devDependency，用于 TS 编译检查）
   npm run ci
 
 它会依次做三件事：
   ci:gate        正例必须通过；7 个反例必须按预期错误码被打回
-  ci:determinism 每个示例展开两次，逐字节比较
-  ci:e2e         展开成 C#，真实 dotnet 编译运行，比对预期输出
+  ci:determinism 每个示例 × 4 个目标各展开两次，逐字节比较
+  ci:e2e         展开成 C#/TS/Python/Java，真实编译运行，比对预期输出
 
 手动验证单文件：
 
   node expander/cli.mjs check  examples/sum.luc --schema spec/schema.json
   node expander/cli.mjs expand examples/sum.luc --target csharp --schema spec/schema.json
+  node expander/cli.mjs expand examples/sum.luc --target typescript --schema spec/schema.json
+  node expander/cli.mjs expand examples/sum.luc --target python --schema spec/schema.json
+  node expander/cli.mjs expand examples/sum.luc --target java --schema spec/schema.json
 
 
 --------------------------------------------------------------------------------
@@ -62,10 +69,10 @@ Lucid 的做法是把这四件事从"模型自觉"改成"系统强制"：
        |
        |  契约：Intent AST（JSON 可序列化，结构与算子都固定）
        v
-  [展开层]       查 operators.yaml，做纯字符串模板替换，输出 .cs
+  [展开层]       查 operators.yaml，做纯字符串模板替换，输出宿主代码
        |
        v
-  [宿主层]       C#：类型、记录、调用方代码
+  [宿主层]       C# / TypeScript / Python / Java：类型、记录、调用方代码
 
 关键点：AI 层不能写循环、import、类型声明、lambda、赋值。
 一旦写了，说明它越过了边界，门禁会把它当作语法/类型错误打回。
@@ -96,6 +103,25 @@ Lucid 的做法是把这四件事从"模型自觉"改成"系统强制"：
   var count = Pipelines.AdultCount(new[] {
       new User("A", 17), new User("B", 20), new User("C", 30)
   });   // 2
+
+同一份意图换 --target，得到语义等价的其它宿主代码：
+
+  TypeScript:
+    export function AdultCount(users: User[]): number {
+      const adults = users.filter((x) => x.age >= 18).length;
+      return adults;
+    }
+
+  Python:
+    def AdultCount(users: List[User]) -> int:
+        adults = len([x for x in users if x.age >= 18])
+        return adults
+
+  Java（产物是方法，类与 import 由宿主提供）:
+    public static int AdultCount(List<User> users) {
+        var adults = (int) users.stream().filter(x -> x.age() >= 18).count();
+        return adults;
+    }
 
 
 --------------------------------------------------------------------------------
@@ -162,7 +188,7 @@ Lucid 的做法是把这四件事从"模型自觉"改成"系统强制"：
   docs/cheatsheet.md    语法与错误码速查（写给模型看的）
   docs/history/         历史设计（第一版 TypeScript 方案）
 
-  operators.yaml        算子唯一注册表：签名 + C# 模板
+  operators.yaml        算子唯一注册表：签名 + 4 门目标模板
   spec/schema.json      数据源与记录字段类型
   spec/ebnf.md          文法、token 对齐、最小文法注入
   spec/rubric.md        审查判定表（R/P/D/A 四组）
@@ -171,7 +197,11 @@ Lucid 的做法是把这四件事从"模型自觉"改成"系统强制"：
   expander/tokenizer.mjs 词法
   expander/parser.mjs    LL(1) 递归下降 -> Intent AST
   expander/checker.mjs   类型 / 效果 / 字段 / 参数形状
-  expander/render-csharp.mjs  AST -> C#（纯模板替换，无随机因素）
+  expander/render-common.mjs   算子模板装配（4 个目标共用）
+  expander/render-csharp.mjs   AST -> C#
+  expander/render-typescript.mjs  AST -> TypeScript
+  expander/render-python.mjs   AST -> Python
+  expander/render-java.mjs     AST -> Java（Stream + 尾部 collect）
   expander/yaml-lite.mjs 极简 YAML 读取（零第三方依赖）
 
   examples/*.luc        三个可运行意图
@@ -203,7 +233,8 @@ Lucid 的做法是把这四件事从"模型自觉"改成"系统强制"：
 放弃：
   D1  表达力：只有 5 个算子，扩展必须先申报并补齐四件套
   D2  优化：不重排、不合并、不内联，可 diff 优先于优雅
-  D3  多目标：v0.1 只支持 C#
+  D3  多目标：只维护注册的 4 门目标（csharp/typescript/python/java），
+      其它目标一律报 E_EXPAND_UNSUPPORTED_TARGET
 
 
 --------------------------------------------------------------------------------
@@ -224,11 +255,12 @@ Lucid 的做法是把这四件事从"模型自觉"改成"系统强制"：
 11. 已知限制
 --------------------------------------------------------------------------------
   - 算子只有 5 个，不支持 join / group / select / 复合谓词；
-  - 目标语言只有 C#；examples/cpp/main.cpp 是手写参照，本机缺完整 C++ 工具链，
-    未经编译验证，请勿当作生成产物；
+  - 目标语言 4 门：csharp / typescript / python / java，每门都在 CI 里真实编译运行；
+    examples/cpp/main.cpp 是手写参照，C++ 尚未注册为正式目标；
+  - Java 产物只含方法（类与 import 由宿主提供），管道基于 Stream；
   - examples/csharp/Program.cs 使用 .NET 10+ 的单文件指令（#:property）；
   - 未发布到 npm；本地可用 npm link 后以 lucid 命令调用；
-  - CI 定义在 .github/workflows/ci.yml（Node 20 + .NET 10），推送到 GitHub 即自动运行。
+  - CI 定义在 .github/workflows/ci.yml（Node 20 + .NET 10 + Python + JDK 17），推送到 GitHub 即自动运行。
 
 
 --------------------------------------------------------------------------------
@@ -236,7 +268,7 @@ Lucid 的做法是把这四件事从"模型自觉"改成"系统强制"：
 --------------------------------------------------------------------------------
   v0.2  select / group / join（先补类型规则、错误码、反例）
   v0.3  Result<T,E> 与失败路径
-  待定  --target cpp（需要完整工具链 + e2e 才能进入正式支持）
+  待定  --target cpp / go / rust（需要完整工具链 + e2e 才能进入正式支持）
 
 
 --------------------------------------------------------------------------------
